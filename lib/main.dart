@@ -101,9 +101,10 @@ class _MyHomePageState extends State<MyHomePage> {
     }
 
     void download(String url) async {
-        var statusAnd13orAbove = Permission.photos.request();
-        var statusAnd12orBelow = Permission.storage.request();
-        if((await statusAnd13orAbove.isGranted) || (await statusAnd12orBelow.isGranted)) {
+        var statusNotification = await Permission.notification.request();
+        var statusAnd13orAbove = await Permission.photos.request();
+        var statusAnd12orBelow = await Permission.storage.request();
+        if((statusAnd13orAbove.isGranted) || (statusAnd12orBelow.isGranted)) {
             RegExp exp = RegExp(r'([^\/]|[.])*\?');
             String filename = exp.firstMatch(url)![0]!.replaceAll(RegExp(r'\?'), "");
             Directory? dir = await getExternalStorageDirectory();
