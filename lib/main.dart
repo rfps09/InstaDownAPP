@@ -95,12 +95,13 @@ class _MyHomePageState extends State<MyHomePage> {
     late Future<InstaURLs>? midiaURLs = null;
     final TextEditingController _textController = TextEditingController();
     List<bool> onAndOffButton = [];
+    List<dynamic> idxToID = [];
 
     VideoPlayerController initVideo(String url) {
         return VideoPlayerController.network(url);
     }
 
-    void download(String url) async {
+    void download(String url, int idx) async {
         var statusNotification = await Permission.notification.request();
         var statusAnd13orAbove = await Permission.photos.request();
         var statusAnd12orBelow = await Permission.storage.request();
@@ -108,7 +109,7 @@ class _MyHomePageState extends State<MyHomePage> {
             RegExp exp = RegExp(r'([^\/]|[.])*\?');
             String filename = exp.firstMatch(url)![0]!.replaceAll(RegExp(r'\?'), "");
             Directory? dir = await getExternalStorageDirectory();
-            await FlutterDownloader.enqueue(
+            var taskID = await FlutterDownloader.enqueue(
                 url: url,
                 headers: {},
                 savedDir: dir!.path,
@@ -117,6 +118,8 @@ class _MyHomePageState extends State<MyHomePage> {
                 openFileFromNotification: true,
                 saveInPublicStorage: true,
             );
+
+            idxToID[idx] = taskID;
         }
     }
 
@@ -126,27 +129,51 @@ class _MyHomePageState extends State<MyHomePage> {
     void initState() {
         super.initState();
 
-        IsolateNameServer.registerPortWithName(_port.sendPort, 'downloader_send_port');
-        _port.listen((dynamic data) {
-            String id = data[0];
-            DownloadTaskStatus status = data[1];
-            int progress = data[2];
-            setState((){ });
-        });
+        _bindBackgroundIsolate();
 
-        FlutterDownloader.registerCallback(downloadCallback);
+        FlutterDownloader.registerCallback(downloadCallback, step: 1);
+
+        final tasks = FlutterDownloader.loadTasks();
     }
 
     @override
     void dispose() {
-        IsolateNameServer.removePortNameMapping('downloader_send_port');
+        _unbindBackgroundIsolate();
         super.dispose();
+    }
+
+    void _bindBackgroundIsolate() {
+        final isSuccess = IsolateNameServer.registerPortWithName(
+            _port.sendPort,
+            'downloader_send_port',
+        );
+        if (!isSuccess) {
+            _unbindBackgroundIsolate();
+            _bindBackgroundIsolate();
+            return;
+        }
+        _port.listen((dynamic data) {
+            final taskId = (data as List<dynamic>)[0] as String;
+            final status = DownloadTaskStatus(data[1] as int);
+            final progress = data[2] as int;
+
+            for(int i=0; i<idxToID.length; i++) {
+                if(idxToID[i] != null && idxToID[i] == taskId && status == DownloadTaskStatus.complete) {
+                    setState(() {
+                        onAndOffButton[i] = false;
+                    });
+                }
+            }
+        });
+    }
+
+    void _unbindBackgroundIsolate() {
+        IsolateNameServer.removePortNameMapping('downloader_send_port');
     }
 
     @pragma('vm:entry-point')
     static void downloadCallback(String id, DownloadTaskStatus status, int progress) {
-        final SendPort? send = IsolateNameServer.lookupPortByName('downloader_send_port');
-        send?.send([id, status, progress]);
+        IsolateNameServer.lookupPortByName('downloader_send_port')?.send([id, status.value, progress]);
     }
 
     @override
@@ -171,6 +198,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                     setState(() {
                                         midiaURLs = getURLs(_textController.text);
                                         onAndOffButton = [];
+                                        idxToID = [];
                                     });
                                 },
                                 child: const Text('Procurar'),
@@ -188,6 +216,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                         for(InstaURL midia in snapshot.data!.urls) {
                                             if(fillList) {
                                                 onAndOffButton.add(true);
+                                                idxToID.add(null);
                                             }
                                             int idx = nextIdx;
                                             nextIdx++;
@@ -201,13 +230,15 @@ class _MyHomePageState extends State<MyHomePage> {
                                                 );
                                                 children.add(
                                                     ElevatedButton(
-                                                        onPressed: onAndOffButton[idx] ? () {
-                                                            download(midia.url);
-                                                            setState(() {
-                                                                onAndOffButton[idx] = false;
-                                                            });
-                                                        } : null,
-                                                        child: const Text('Download'),
+                                                        onPressed: onAndOffButton[idx] ? () async {
+                                                            download(midia.url, idx);
+                                                            if(!onAndOffButton[idx]) {
+                                                                setState(() {
+                                                                  onAndOffButton[idx] = false;
+                                                                });
+                                                            }
+                                                        }:null,
+                                                        child: Text('Download'),
                                                     )
                                                 );
                                             } 
@@ -252,12 +283,14 @@ class _MyHomePageState extends State<MyHomePage> {
                                                 children.add(
                                                     ElevatedButton(
                                                         onPressed: onAndOffButton[idx] ? () {
-                                                            download(midia.url);
-                                                            setState(() {
-                                                                onAndOffButton[idx] = false;
-                                                            });
-                                                        } : null,
-                                                        child: const Text('Download'),
+                                                            download(midia.url, idx);
+                                                            if(!onAndOffButton[idx]) {
+                                                                setState(() {
+                                                                    onAndOffButton[idx] = false;
+                                                                });
+                                                            }
+                                                        }:null,
+                                                        child: Text('Download'),
                                                     )
                                                 );
                                             }
