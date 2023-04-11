@@ -96,6 +96,9 @@ class _MyHomePageState extends State<MyHomePage> {
     final TextEditingController _textController = TextEditingController();
     List<bool> onAndOffButton = [];
     List<dynamic> idxToID = [];
+    List<Widget> children = [];
+    int midiaIdx = 0;
+    int midiaMaxIdx = 0;
 
     VideoPlayerController initVideo(String url) {
         return VideoPlayerController.network(url);
@@ -123,7 +126,7 @@ class _MyHomePageState extends State<MyHomePage> {
         }
     }
 
-    ReceivePort _port = ReceivePort();
+    final ReceivePort _port = ReceivePort();
 
     @override
     void initState() {
@@ -132,8 +135,6 @@ class _MyHomePageState extends State<MyHomePage> {
         _bindBackgroundIsolate();
 
         FlutterDownloader.registerCallback(downloadCallback, step: 1);
-
-        final tasks = FlutterDownloader.loadTasks();
     }
 
     @override
@@ -161,6 +162,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 if(idxToID[i] != null && idxToID[i] == taskId && status == DownloadTaskStatus.complete) {
                     setState(() {
                         onAndOffButton[i] = false;
+                        children = [];
                     });
                 }
             }
@@ -199,88 +201,82 @@ class _MyHomePageState extends State<MyHomePage> {
                                         midiaURLs = getURLs(_textController.text);
                                         onAndOffButton = [];
                                         idxToID = [];
+                                        children = [];
                                     });
                                 },
                                 child: const Text('Procurar'),
+                            ),
+                            const SizedBox(
+                                height: 50,
                             ),
                             FutureBuilder<InstaURLs>(
                                 future: midiaURLs,
                                 builder: (context, snapshot) {
                                     if (snapshot.hasData) {
-                                        List<Widget> children = [];
-                                        bool fillList = false;
-                                        if(onAndOffButton.isEmpty) {
-                                            fillList = true;
-                                        }
-                                        int nextIdx = 0;
-                                        for(InstaURL midia in snapshot.data!.urls) {
-                                            if(fillList) {
-                                                onAndOffButton.add(true);
-                                                idxToID.add(null);
+                                        if(children.isEmpty) {
+                                            bool fillList = false;
+                                            if(onAndOffButton.isEmpty) {
+                                                fillList = true;
                                             }
-                                            int idx = nextIdx;
-                                            nextIdx++;
-                                            if (midia.type == 'image') {
-                                                children.add(
-                                                    SizedBox(
-                                                        width: 400,
-                                                        height: 400,
-                                                        child: Image.network(midia.url)
-                                                    )
-                                                );
-                                                children.add(
-                                                    ElevatedButton(
-                                                        onPressed: onAndOffButton[idx] ? () async {
-                                                            download(midia.url, idx);
-                                                            if(!onAndOffButton[idx]) {
-                                                                setState(() {
-                                                                  onAndOffButton[idx] = false;
-                                                                });
-                                                            }
-                                                        }:null,
-                                                        child: Text('Download'),
-                                                    )
-                                                );
-                                            } 
-                                            else {
-                                                late VideoPlayerController _controller = initVideo(midia.url);
-                                                children.add(
-                                                    FutureBuilder(
-                                                        future: _controller.initialize(),
-                                                        builder: (context, snapshot) {
-                                                            if (snapshot.connectionState == ConnectionState.done) {
-                                                                return SizedBox(
-                                                                    width: 400,
-                                                                    height: 400,
-                                                                    child: Center(
-                                                                        child: InkWell(
-                                                                            onTap: () {
-                                                                                if (_controller.value.isPlaying) {
-                                                                                    _controller.pause();
-                                                                                } else {
-                                                                                    _controller.play();
-                                                                                }
-                                                                            },
-                                                                            child: AspectRatio(
-                                                                                aspectRatio:
-                                                                                _controller.value.aspectRatio,
-                                                                                child: VideoPlayer(_controller),
+                                            int nextIdx = 0;
+                                            for(InstaURL midia in snapshot.data!.urls) {
+                                                List<Widget> child = [];
+                                                if(fillList) {
+                                                    onAndOffButton.add(true);
+                                                    idxToID.add(null);
+                                                }
+                                                int idx = nextIdx;
+                                                nextIdx++;
+                                                if (midia.type == 'image') {
+                                                    child.add(
+                                                        SizedBox(
+                                                            width: 290,
+                                                            height: 290,
+                                                            child: Image.network(midia.url)
+                                                        )
+                                                    );
+                                                }
+                                                else {
+                                                    late VideoPlayerController _controller = initVideo(midia.url);
+                                                    child.add(
+                                                        FutureBuilder(
+                                                            future: _controller.initialize(),
+                                                            builder: (context, snapshot) {
+                                                                if (snapshot.connectionState == ConnectionState.done) {
+                                                                    return SizedBox(
+                                                                        width: 290,
+                                                                        height: 290,
+                                                                        child: Center(
+                                                                            child: InkWell(
+                                                                                onTap: () {
+                                                                                    if (_controller.value.isPlaying) {
+                                                                                        _controller.pause();
+                                                                                    } else {
+                                                                                        _controller.play();
+                                                                                    }
+                                                                                },
+                                                                                child: AspectRatio(
+                                                                                    aspectRatio:
+                                                                                    _controller.value.aspectRatio,
+                                                                                    child: VideoPlayer(_controller),
+                                                                                ),
                                                                             ),
-                                                                        ),
-                                                                    )
-                                                                );
-                                                            }
-                                                            else {
-                                                                // If the VideoPlayerController is still initializing, show a
-                                                                // loading spinner.
-                                                                return const Center(
-                                                                child: CircularProgressIndicator(),
-                                                                );
-                                                            }
-                                                        },
-                                                    )
-                                                );
-                                                children.add(
+                                                                        )
+                                                                    );
+                                                                }
+                                                                else {
+                                                                    // If the VideoPlayerController is still initializing, show a
+                                                                    // loading spinner.
+                                                                    return const Center(
+                                                                    child: CircularProgressIndicator(),
+                                                                    );
+                                                                }
+                                                            },
+                                                        )
+                                                    );
+                                                }
+                                                child.add(Text('Tipo da midia: ${midia.type}'));
+                                                child.add(
                                                     ElevatedButton(
                                                         onPressed: onAndOffButton[idx] ? () {
                                                             download(midia.url, idx);
@@ -293,13 +289,55 @@ class _MyHomePageState extends State<MyHomePage> {
                                                         child: Text('Download'),
                                                     )
                                                 );
+                                                children.add(
+                                                    Column(
+                                                        children: child,
+                                                    )
+                                                );
                                             }
+                                            midiaMaxIdx = nextIdx-1;
                                         }
                                         return Center(
-                                            child: Column(
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: children,
-                                            ),
+                                            child: Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                children: <Widget> [
+                                                    IconButton(
+                                                        icon: const Icon(
+                                                            Icons.navigate_before,
+                                                        ),
+                                                        tooltip: 'Voltar',
+                                                        style: TextButton.styleFrom(
+                                                            minimumSize: const Size(40, 40),
+                                                            padding: const EdgeInsets.all(0),
+                                                        ),
+                                                        onPressed: () {
+                                                            if(midiaIdx > 0) {
+                                                                setState(() {
+                                                                  midiaIdx--;
+                                                                });
+                                                            }
+                                                        },
+                                                    ),
+                                                    children.elementAt(midiaIdx),
+                                                    IconButton(
+                                                        icon: const Icon(
+                                                            Icons.navigate_next,
+                                                        ),
+                                                        tooltip: 'Avançar',
+                                                        style: TextButton.styleFrom(
+                                                            minimumSize: const Size(40, 40),
+                                                            padding: const EdgeInsets.all(0),
+                                                        ),
+                                                        onPressed: () {
+                                                            if(midiaIdx < midiaMaxIdx) {
+                                                                setState(() {
+                                                                    midiaIdx++;
+                                                                });
+                                                            }
+                                                        },
+                                                    ),
+                                                ],
+                                            )
                                         );
                                     }
                                     // By default, show a loading spinner.
