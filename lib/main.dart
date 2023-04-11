@@ -47,8 +47,17 @@ class MyApp extends StatelessWidget {
         return MaterialApp(
             title: 'InstaDown',
             theme: ThemeData(
+                brightness: Brightness.light,
                 primarySwatch: Colors.purple,
             ),
+            darkTheme: ThemeData(
+                brightness: Brightness.dark,
+                primarySwatch: Colors.purple,
+                appBarTheme: const AppBarTheme(
+                    color: Colors.purple,
+                ),
+            ),
+            themeMode: ThemeMode.system,
             home: const MyHomePage(title: 'InstaDown'),
         );
     }
